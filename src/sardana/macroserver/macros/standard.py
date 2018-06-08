@@ -25,7 +25,7 @@
 
 __all__ = ["ct", "mstate", "mv", "mvr", "pwa", "pwm", "repeat", "set_lim",
            "set_lm", "set_pos", "settimer", "uct", "umv", "umvr", "wa", "wm",
-           "tw", "logmacro"]
+           "tw", "logmacro", "comment"]
 
 __docformat__ = 'restructuredtext'
 
@@ -845,3 +845,19 @@ class repeat(Hookable, Macro):
                 self.__loop()
                 progress = ((i + 1) / float(nr)) * 100
                 yield progress
+
+class comment(Macro, Hookable):
+    """This macro writes a comment to the SPEC file."""
+    
+    hints = {'allowsHooks': ('pre-scan', 'post-scan')}
+    
+    param_def = [
+        ['commentText', Type.String, None, 'Text to add as comments'],
+        ]
+    
+    def run(self, commentText):        
+        self.output(commentText)
+        
+        
+        
+        
