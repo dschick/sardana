@@ -856,7 +856,13 @@ class comment(Macro, Hookable):
         ]
     
     def run(self, commentText):        
-        self.output(commentText)
+        self.info('add comment: %s', commentText)
+        
+        dh = self.scan._gScan._data_handler
+        # at this point the entry name is not yet set, so we give it explicitly
+        # (otherwise it would default to "entry")
+        dh.addCustomData('Hello world1', 'dummyChar1')
+        
         
         
         
