@@ -845,3 +845,28 @@ class repeat(Hookable, Macro):
                 self.__loop()
                 progress = ((i + 1) / float(nr)) * 100
                 yield progress
+
+
+class newfile(Macro):
+    """This macro sets a new ScanFile and ScanID values into the env.
+    The ScanID should be set to the value N of the last executed ScanID 
+    in order to continue with a ScanID N+1 for the next scan."""
+
+    env = ('ScanFile', 'ScanID')
+
+    param_def = [
+        ['ScanID', Type.Integer, 1, 'Scan ID'],
+        ['ScanFile_list',
+         ParamRepeat(['ScanFile', Type.String, None, 'Name of scan file']),
+         None, 'List of scan file names'],
+    ]
+    
+    def run(self, ScanID, ScanFile_list):        
+        self.setEnv('ScanFile', ScanFile_list)
+        self.setEnv('ScanID', ScanID)
+        
+        self.output('ScanFile set to: ')
+        for ScanFile in ScanFile_list:
+            self.output(' %s', ScanFile)
+        self.output('ScanID set to: %d', ScanID)
+        
