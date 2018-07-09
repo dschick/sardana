@@ -930,3 +930,35 @@ class newfile(Macro):
             for ScanFile in fileName_list:
                 self.output(' %s', ScanFile)
             self.output('Next scan is #%d', ScanID+1)
+
+
+class plotselect(Macro):
+    """
+    plotselect counter1 counter2 ... (change plot display of active measurement
+    group)
+
+    """
+    param_def = [
+          ['plotChs', ParamRepeat(
+                  ['plotChs', Type.String, 'None', ""], min=0), None, ""]
+     ]
+
+    def run(self, plotChs):
+        mntGrp = self.getEnv('ActiveMntGrp')
+        self.mntGrp = self.getObj(mntGrp, type_class=Type.MeasurementGroup)
+        cfg = self.mntGrp.getConfiguration()
+
+        # Enable Plot only in the channels passed.
+        for channel in self.mntGrp.getChannels():
+            if channel['name'] in plotChs[0]:
+                # Enable Plot
+                self.info("Plot channel %s" % channel['name'])
+                channel['plot_type'] = 1
+                channel['plot_axes'] = ['<mov>']
+            else:
+                # Disable Plot
+                channel['plot_type'] = 0
+                channel['plot_axes'] = []
+
+        # Force set Configuration.
+        self.mntGrp.setConfiguration(cfg.raw_data)
