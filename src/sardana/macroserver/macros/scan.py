@@ -33,7 +33,8 @@ __all__ = ["a2scan", "a3scan", "a4scan", "amultiscan", "aNscan", "ascan",
            "d2scanc", "d3scanc", "d4scanc", "dscanc",
            "meshc",
            "a2scanct", "a3scanct", "a4scanct", "ascanct", "meshct",
-           "scanhist", "getCallable", "UNCONSTRAINED"]
+           "scanhist", "getCallable", "UNCONSTRAINED",
+           "scanstats"]
 
 __docformat__ = 'restructuredtext'
 
@@ -113,15 +114,14 @@ def _calculate_positions(moveable_node, start, end):
 
 
 class aNscan(Hookable):
+    """N-dimensional scan. This is **not** meant to be called by the user,
+    but as a generic base to construct ascan, a2scan, a3scan,..."""
 
     hints = {'scan': 'aNscan', 'allowsHooks': ('pre-scan', 'pre-move',
                                                'post-move', 'pre-acq',
                                                'post-acq', 'post-step',
                                                'post-scan')}
     # env = ('ActiveMntGrp',)
-
-    """N-dimensional scan. This is **not** meant to be called by the user,
-    but as a generic base to construct ascan, a2scan, a3scan,..."""
 
     def _prepare(self, motorlist, startlist, endlist, scan_length, integ_time,
                  mode=StepMode, latency_time=0, **opts):
@@ -252,6 +252,9 @@ class aNscan(Hookable):
         post_move_hooks = self.getHooks(
             'post-move') + [self._fill_missing_records]
         step["post-move-hooks"] = post_move_hooks
+        step["pre-acq-hooks"] = self.getHooks('pre-acq')
+        step["post-acq-hooks"] = self.getHooks('post-acq') + self.getHooks(
+            '_NOHINTS_')
         step["check_func"] = []
         step["active_time"] = self.nr_points * (self.integ_time +
                                                 self.latency_time)
@@ -1423,6 +1426,8 @@ class ascanct(aNscan, Macro):
     hints = {'scan': 'ascanct', 'allowsHooks': ('pre-configuration',
                                                 'post-configuration',
                                                 'pre-start',
+                                                'pre-acq',
+                                                'post-acq',
                                                 'pre-cleanup',
                                                 'post-cleanup')}
 
@@ -1451,6 +1456,8 @@ class a2scanct(aNscan, Macro):
     hints = {'scan': 'a2scanct', 'allowsHooks': ('pre-configuration',
                                                  'post-configuration',
                                                  'pre-start',
+                                                 'pre-acq',
+                                                 'post-acq',
                                                  'pre-cleanup',
                                                  'post-cleanup')}
 
@@ -1483,6 +1490,8 @@ class a3scanct(aNscan, Macro):
     hints = {'scan': 'a2scanct', 'allowsHooks': ('pre-configuration',
                                                  'post-configuration',
                                                  'pre-start',
+                                                 'pre-acq',
+                                                 'post-acq',
                                                  'pre-cleanup',
                                                  'post-cleanup')}
 
@@ -1518,6 +1527,8 @@ class a4scanct(aNscan, Macro):
     hints = {'scan': 'a2scanct', 'allowsHooks': ('pre-configuration',
                                                  'post-configuration',
                                                  'pre-start',
+                                                 'pre-acq',
+                                                 'post-acq',
                                                  'pre-cleanup',
                                                  'post-cleanup')}
 
@@ -1838,3 +1849,62 @@ class timescan(Macro, Hookable):
 
     def getIntervalEstimation(self):
         return self.nr_interv
+
+
+class scanstats(Macro):
+    """Calculate basic statistics of the first enabled and plotted counter in
+    the active measurement group for the last scan. Print it and publish it
+    in the env. The macro must be hooked in the post-scan hook place.
+    """
+
+    def run(self, *args):
+        parent = self.getParentMacro()
+        if parent:
+            mntGrp = self.getEnv('ActiveMntGrp')
+            self.mntGrp = self.getObj(mntGrp, type_class=Type.MeasurementGroup)
+            channels = self.mntGrp.getChannels()
+            select_channel = ''
+
+            for channel in channels:
+                if channel['enabled'] & channel['plot_type'] == 1:
+                    select_channel = channel['name']
+                    break
+
+            # in case no channel is enabled and plotted just take the first
+            if select_channel == '':
+                select_channel = channels[0]['name']
+
+            select_motor = str(parent.motors[0])
+
+            self.info('Statistics on channel: %s' % select_channel)
+            self.info('Statistics for movable: %s' % select_motor)
+            data = parent.data
+
+            counter_data = []
+            motor_data = []
+
+            for idx, rc in data.items():
+                counter_data.append(rc[select_channel])
+                motor_data.append(rc[select_motor])
+
+            counter_data = numpy.array(counter_data)
+            motor_data = numpy.array(motor_data)
+
+            CEN = numpy.sum(counter_data*motor_data)/numpy.sum(counter_data)
+            PEAK = motor_data[numpy.argmax(counter_data)]
+            # print statistics
+            self.info('Min:\t %g' % numpy.min(counter_data))
+            self.info('Max:\t %g' % numpy.max(counter_data))
+            self.info('Min at:\t %g' % motor_data[numpy.argmin(counter_data)])
+            self.info('Max at:\t %g' % PEAK)
+            self.info('Mean:\t %g' % numpy.mean(counter_data))
+            self.info('Integral:\t %g' % numpy.sum(counter_data))
+            self.info('CEN:\t %g' % CEN)
+            # set CEN and PEAK as env variables
+            # set the motor only in case it is hard to access it from another
+            # macro liek pic or cen
+            self.setEnv('ScanStats', {'PEAK': PEAK, 'CEN': CEN,
+                                      'motor': select_motor})
+        else:
+            self.warning('for now the scanstats macro can only be executed as'
+                         ' a post-scan hook')

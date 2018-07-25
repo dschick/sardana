@@ -9,13 +9,19 @@ This file follows the formats and conventions from [keepachangelog.com]
 - `repeat` macro for executing n-times the hooks attached in its body (#310,
   #745)
 - `pre-acq` and `post-acq` hooks to the `ct` macro (#808)
+- `pre-acq` and `post-acq` hooks to the continuous scans: `ascanct` family
+  macros (#780)
+- Default macro logging filter which improves the output of logging messages.
+  Filter can be configured with sardanacustomsettings (#730)
+- Possibiltiy to configure ORB end point for Tango servers with Tango DB
+  free property (#874)
 - Enhance software synchronization by allowing function generation when
   group has 1 repeat only (#786)
 - Information about controller properties in `sar_info` macro (#855, #866)
 
 ### Fixed
 - Ensure that value buffer (data) events are handled sequentially so data
-  are not wrongly interpreted as lost (#794)
+  are not wrongly interpreted as lost (#794, #813)
 - Push change events from code for measurement group attributes: moveable,
   latency time and synchronization (#736, #738)
 - `getPoolObj` random `AttributeErrors: _pool_obj` errors in macros (#865, #57)
@@ -26,6 +32,8 @@ This file follows the formats and conventions from [keepachangelog.com]
 - `lsgh` list hooks multiple times to reflect the configuration (#774)
 - Avoid errors if selected trajectory in HKL controller doesnot exists (#752)
 - Pass motion range information with `MoveableDesc` in `mesh` scan (#864)
+- `getElementByAxis` and `getElementByName` of Controller Taurus extension
+  class (#872)
 - Documentation on how to install and use Sardana from Git clone (#751)
 - Documentation (Sphinx) build warnings (#859, #179, #219, #393)
 
