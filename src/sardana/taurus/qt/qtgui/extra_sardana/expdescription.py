@@ -27,7 +27,9 @@
 
 __all__ = ["ExpDescriptionEditor"]
 
-from taurus.external.qt import Qt
+
+import json
+from taurus.external.qt import Qt, QtCore
 import copy
 import taurus
 import taurus.core
@@ -66,6 +68,55 @@ class SardanaAcquirableProxyModel(SardanaBaseProxyModel):
         return True
 
 
+def find_diff(first, second):
+    """
+    Return a dict of keys that differ with another config object.  If a value
+    is not found in one fo the configs, it will be represented by KEYNOTFOUND.
+    @param first:   Fist configuration to diff.
+    @param second:  Second configuration to diff.
+    @return diff:   Dict of Key => (first.val, second.val)
+    """
+
+    KEYNOTFOUNDIN1 = 'KeyNotFoundInRemote'
+    KEYNOTFOUNDIN2 = 'KeyNotFoundInLocal'
+    SKIPKEYS = ['_controller_name']
+    SKIPLIST = ['scanfile']
+    DICT_TYPES = [taurus.core.util.containers.CaselessDict, dict]
+    diff = {}
+    sd1 = set(first)
+    sd2 = set(second)
+    # Keys missing in the second dict
+
+    for key in sd1.difference(sd2):
+        if key in SKIPKEYS:
+            continue
+        diff[key] = (first[key], KEYNOTFOUNDIN2)
+    # Keys missing in the first dict
+    for key in sd2.difference(sd1):
+        if key in SKIPKEYS:
+            continue
+        diff[key] = (KEYNOTFOUNDIN1, second[key])
+    # Check for differences
+    for key in sd1.intersection(sd2):
+        value1 = first[key]
+        value2 = second[key]
+        if type(value1) in DICT_TYPES:
+            idiff = find_diff(value1, value2)
+            if len(idiff) > 0:
+                diff[key] = idiff
+        elif type(value1) == list and key.lower() not in SKIPLIST:
+            ldiff = []
+            for v1, v2 in zip(value1, value2):
+                idiff = find_diff(v1, v2)
+                ldiff.append(idiff)
+            if len(ldiff) > 0:
+                diff[key] = ldiff
+        else:
+            if value1 != value2:
+                diff[key] = (first[key], second[key])
+    return diff
+
+
 @UILoadable(with_ui='ui')
 class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
     '''
@@ -82,6 +133,8 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
         self.loadUi()
         self.ui.buttonBox.setStandardButtons(
             Qt.QDialogButtonBox.Reset | Qt.QDialogButtonBox.Apply)
+        self.ui.buttonBox.button(Qt.QDialogButtonBox.Reset).setText('Reload')
+
         newperspectivesDict = copy.deepcopy(
             self.ui.sardanaElementTree.KnownPerspectives)
         #newperspectivesDict[self.ui.sardanaElementTree.DftPerspective]['model'] = [SardanaAcquirableProxyModel, SardanaElementPlainModel]
@@ -97,6 +150,12 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
         self._originalConfiguration = None
         self._dirty = False
         self._dirtyMntGrps = set()
+
+        # Pending event variables
+        self._expConfChangedDialog = None
+        self.createExpConfChangedDialog = Qt.pyqtSignal()
+        self.connect(self, Qt.SIGNAL('createExpConfChangedDialog'),
+                     self._createExpConfChangedDialog)
 
         self.connect(self.ui.activeMntGrpCB, Qt.SIGNAL(
             'activated (QString)'), self.changeActiveMntGrp)
@@ -143,6 +202,99 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
         # Taurus Configuration properties and delegates
         self.registerConfigDelegate(self.ui.channelEditor)
 
+    def _getResumeText(self):
+        msg_resume = '<p> Summary of changes: <ul>'
+        mnt_grps = ''
+        envs = ''
+        for key in self._diff:
+            if key == 'MntGrpConfigs':
+                for names in self._diff['MntGrpConfigs']:
+                    if mnt_grps != '':
+                        mnt_grps += ', '
+                    mnt_grps += '<b>{0}</b>'.format(names)
+            else:
+                if envs != '':
+                    envs += ', '
+                envs += '<b>{0}</b>'.format(key)
+        values = ''
+        if mnt_grps != '':
+            values += '<li> Measurement Groups: {0}</li>'.format(mnt_grps)
+        if envs != '':
+            values += '<li> Enviroment variables: {0}</li>'.format(envs)
+
+        msg_resume += values
+        msg_resume += ' </ul> </p>'
+        return msg_resume
+
+    def _getDetialsText(self):
+        msg_detials = 'Changes {key: [external, local], ...}\n'
+        msg_detials += json.dumps(self._diff, sort_keys=True)
+        return msg_detials
+
+    def _createExpConfChangedDialog(self):
+        msg_details = self._getDetialsText()
+        msg_info = self._getResumeText()
+        self._expConfChangedDialog = Qt.QMessageBox()
+        self._expConfChangedDialog.setIcon(Qt.QMessageBox.Warning)
+        self._expConfChangedDialog.setWindowTitle('External Changes')
+        # text = '''
+        # <p align='justify'>
+        # The experiment configuration has been modified externally.<br/>
+        # You can either:<br/> <l1><b>Load</b> the new configuration from the
+        # door
+        # (discarding local changes) or <b>Keep</b> your local configuration
+        # (would eventually overwrite the external changes when applying).
+        # </p>'''
+        text = '''
+        <p>The experiment configuration has been modified externally.
+        You can either:
+        <ul>
+        <li><strong>Load </strong>the new configuration from the door
+        (discarding local changes)</li>
+        <li><strong>Keep </strong>your local configuration (would eventually
+        overwrite the external changes when applying)</li>
+        </ul></p>
+        '''
+        self._expConfChangedDialog.setText(text)
+        self._expConfChangedDialog.setTextFormat(QtCore.Qt.RichText)
+        self._expConfChangedDialog.setInformativeText(msg_info)
+        self._expConfChangedDialog.setDetailedText(msg_details)
+        self._expConfChangedDialog.setStandardButtons(Qt.QMessageBox.Ok |
+                                                      Qt.QMessageBox.Cancel)
+        btn_ok = self._expConfChangedDialog.button(Qt.QMessageBox.Ok)
+        btn_ok.setText('Load')
+        btn_cancel = self._expConfChangedDialog.button(Qt.QMessageBox.Cancel)
+        btn_cancel.setText('Keep')
+        result = self._expConfChangedDialog.exec_()
+        self._expConfChangedDialog = None
+        if result == Qt.QMessageBox.Ok:
+            self._reloadConf(force=True)
+
+    @QtCore.pyqtSlot()
+    def _experimentalConfigurationChanged(self):
+        try:
+            self._diff = self._getDiff()
+        except Exception:
+            return
+
+        if len(self._diff) > 0:
+            if self._expConfChangedDialog is None:
+                self.emit(Qt.SIGNAL('createExpConfChangedDialog'))
+            else:
+                msg_details = self._getDetialsText()
+                msg_info = self._getResumeText()
+                self._expConfChangedDialog.setInformativeText(msg_info)
+                self._expConfChangedDialog.setDetailedText(msg_details)
+
+    def _getDiff(self):
+        door = self.getModelObj()
+        if door is None:
+            return []
+
+        new_conf = door.getExperimentConfiguration()
+        old_conf = self._localConfig
+        return find_diff(new_conf, old_conf)
+
     def getModelClass(self):
         '''reimplemented from :class:`TaurusBaseWidget`'''
         return taurus.core.taurusdevice.TaurusDevice
@@ -180,6 +332,8 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
         msname = door.macro_server.getFullName()
         self.ui.taurusModelTree.setModel(tghost)
         self.ui.sardanaElementTree.setModel(msname)
+        self.connect(door, Qt.SIGNAL("experimentConfigurationChanged"),
+                     self._experimentalConfigurationChanged)
 
     def _reloadConf(self, force=False):
         if not force and self.isDataChanged():
