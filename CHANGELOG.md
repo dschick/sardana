@@ -25,15 +25,19 @@ This file follows the formats and conventions from [keepachangelog.com]
 - Push change events from code for measurement group attributes: moveable,
   latency time and synchronization (#736, #738)
 - `getPoolObj` random `AttributeErrors: _pool_obj` errors in macros (#865, #57)
+- Spock returning prompt too early not allowing to stop macros (#717, #725).
+  Requires Taurus 4.4 (taurus-org/taurus#738).
 - Validation of starts and finals for a2scanct, a3scanct, meshct, ... (#734)
 - `defelem` macro when using default axis number (#568, #609)
 - Make SPEC_FileRecorder use LF instead of CRLF even on windows (#750)
 - Appending of hooks from sequence XML (#747)
+- Split of `PoolPath`, `MacroPath` and `RecorderPath` with OS separator (#762)
 - `lsgh` list hooks multiple times to reflect the configuration (#774)
 - Avoid errors if selected trajectory in HKL controller doesnot exists (#752)
 - Pass motion range information with `MoveableDesc` in `mesh` scan (#864)
 - `getElementByAxis` and `getElementByName` of Controller Taurus extension
   class (#872)
+- `GScan` intervals estimation (#772)
 - Documentation on how to install and use Sardana from Git clone (#751)
 - Documentation (Sphinx) build warnings (#859, #179, #219, #393)
 
