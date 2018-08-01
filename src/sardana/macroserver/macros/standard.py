@@ -25,8 +25,7 @@
 
 __all__ = ["ct", "mstate", "mv", "mvr", "pwa", "pwm", "repeat", "set_lim",
            "set_lm", "set_pos", "settimer", "uct", "umv", "umvr", "wa", "wm",
-           "tw", "logmacro", "newfile", "plotselect"]
-           "tw", "logmacro", "pic", "cen"]
+           "tw", "logmacro", "newfile", "plotselect", "pic", "cen"]
 
 __docformat__ = 'restructuredtext'
 
@@ -995,20 +994,18 @@ class pic(Macro):
     """
 
     param_def = [
-        ['counter', Type.ExpChannel, OptionalParam, 'name of counter']
+        ['counter', Type.ExpChannel, None, 'name of counter']
     ]
 
     def prepare(self, counter):
         self.stats = self.getEnv('ScanStats')
-        if counter == -1:
+        if counter:
             counter = self.stats['counter']
         self.info('use counter: %s' % counter)
 
     def run(self, counter):
         motor_name = self.stats['motor']
-        motor = self.getMotion([motor_name])
-        self.info(motor.getPositon())
-                
+        motor = self.getMotor(motor_name)
 
 
 class cen(Hookable, Macro):
