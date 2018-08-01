@@ -959,9 +959,10 @@ class plotselect(Macro):
         mntGrp = self.getEnv('ActiveMntGrp')
         self.mntGrp = self.getObj(mntGrp, type_class=Type.MeasurementGroup)
         cfg = self.mntGrp.getConfiguration()
-
+        channels = self.mntGrp.getChannels()
+        
         # Enable Plot only in the channels passed.
-        for channel in self.mntGrp.getChannels():
+        for channel in channels:
             if channel['name'] in plotChs:
                 # Enable Plot
                 self.info("Plot channel %s" % channel['name'])
@@ -971,6 +972,11 @@ class plotselect(Macro):
                 # Disable Plot
                 channel['plot_type'] = 0
                 channel['plot_axes'] = []
+
+        # check if plotChs exists
+        for plotCh in plotChs:
+            if plotCh not in channles:
+                self.warning('channel %s does not exist in the current measurement group' % plotCh)
 
         # Force set Configuration.
         self.mntGrp.setConfiguration(cfg.raw_data)
