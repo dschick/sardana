@@ -987,7 +987,6 @@ class plotselect(Macro):
         self.mntGrp.setConfiguration(cfg.raw_data)
 
 
-
 class pic(Macro):
     """This macro moves the motor of the last scan to the peak position for a
     given counter. If no counter is given, it selects the first plotted counter
