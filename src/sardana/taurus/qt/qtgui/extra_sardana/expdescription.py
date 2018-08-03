@@ -29,7 +29,7 @@ __all__ = ["ExpDescriptionEditor"]
 
 
 import json
-from taurus.external.qt import Qt, QtCore
+from taurus.external.qt import Qt, QtCore, QtGui
 import copy
 import taurus
 import taurus.core
@@ -127,7 +127,8 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
     using the `ExperimentConfiguration` environmental variable for that Door.
     '''
 
-    def __init__(self, parent=None, door=None, plotsButton=True):
+    def __init__(self, parent=None, door=None, plotsButton=True,
+                 autoUpdate=False):
         Qt.QWidget.__init__(self, parent)
         TaurusBaseWidget.__init__(self, 'ExpDescriptionEditor')
         self.loadUi()
@@ -150,6 +151,12 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
         self._originalConfiguration = None
         self._dirty = False
         self._dirtyMntGrps = set()
+
+        # Add warning message to the Widget
+        self._autoUpdate = autoUpdate
+        if self._autoUpdate:
+            w = self._getWarningWidget()
+            self.ui.verticalLayout_3.insertWidget(0, w)
 
         # Pending event variables
         self._expConfChangedDialog = None
@@ -201,6 +208,21 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
 
         # Taurus Configuration properties and delegates
         self.registerConfigDelegate(self.ui.channelEditor)
+
+    def _getWarningWidget(self):
+        w = Qt.QWidget()
+        layout = QtGui.QHBoxLayout()
+        w.setLayout(layout)
+        icon = QtGui.QIcon.fromTheme('dialog-warning')
+        pixmap = QtGui.QPixmap(icon.pixmap(QtCore.QSize(32, 32)))
+        label_icon = QtGui.QLabel()
+        label_icon.setPixmap(pixmap)
+        label = QtGui.QLabel('This experiment configuration dialog '
+                             'updates automatically on external changes!')
+        layout.addWidget(label_icon)
+        layout.addWidget(label)
+        layout.addStretch(1)
+        return w
 
     def _getResumeText(self):
         msg_resume = '<p> Summary of changes: <ul>'
@@ -278,13 +300,16 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
             return
 
         if len(self._diff) > 0:
-            if self._expConfChangedDialog is None:
-                self.emit(Qt.SIGNAL('createExpConfChangedDialog'))
+            if self._autoUpdate:
+                self._reloadConf(force=True)
             else:
-                msg_details = self._getDetialsText()
-                msg_info = self._getResumeText()
-                self._expConfChangedDialog.setInformativeText(msg_info)
-                self._expConfChangedDialog.setDetailedText(msg_details)
+                if self._expConfChangedDialog is None:
+                    self.emit(Qt.SIGNAL('createExpConfChangedDialog'))
+                else:
+                    msg_details = self._getDetialsText()
+                    msg_info = self._getResumeText()
+                    self._expConfChangedDialog.setInformativeText(msg_info)
+                    self._expConfChangedDialog.setDetailedText(msg_details)
 
     def _getDiff(self):
         door = self.getModelObj()
@@ -598,10 +623,10 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
             self.__plotManager = None
 
 
-def demo(model=None):
+def demo(model=None, autoUpdate=False):
     """Experiment configuration"""
     #w = main_ChannelEditor()
-    w = ExpDescriptionEditor()
+    w = ExpDescriptionEditor(autoUpdate=autoUpdate)
     if model is None:
         from sardana.taurus.qt.qtgui.extra_macroexecutor import \
             TaurusMacroConfigurationDialog
@@ -621,14 +646,23 @@ def main():
 
     app = Application.instance()
     owns_app = app is None
-
     if owns_app:
+        import taurus.core.util.argparse
+        parser = taurus.core.util.argparse.get_taurus_parser()
+        parser.usage = "%prog [options] <door name>"
+        parser.add_option('--auto-update', dest='auto_update',
+                          action='store_true',
+                          help='Set auto update of experimental configuration')
         app = Application(app_name="Exp. Description demo", app_version="1.0",
-                          org_domain="Sardana", org_name="Tango community")
+                          org_domain="Sardana", org_name="Tango community",
+                          cmd_line_parser=parser)
 
     args = app.get_command_line_args()
+    opt = app.get_command_line_options()
+
     if len(args) == 1:
-        w = demo(model=args[0])
+        auto_update = opt.auto_update is not None
+        w = demo(model=args[0], autoUpdate=auto_update)
     else:
         w = demo()
     w.show()
@@ -637,6 +671,7 @@ def main():
         sys.exit(app.exec_())
     else:
         return w
+
 
 if __name__ == "__main__":
     main()
