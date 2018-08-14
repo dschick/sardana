@@ -5,9 +5,17 @@ This file follows the formats and conventions from [keepachangelog.com]
 
 ## [Unreleased]
 
+## [2.5.0] 2018-08-10
+
 ### Added
-- `repeat` macro for executing n-times the hooks attached in its body (#310,
-  #745)
+- `def_discr_pos`, `udef_discr_pos` and `prdef_discr` macros for configuring
+  discrete pseudo motors (#801)
+- `Configuration` attribute to discrete pseudo motor (#801)
+- Avoid desynchronization of motion and acquisition in time synchronized
+  continuous scans by checking whether the motor controller accepts the scan
+  velocity and in case it rounds it up, reduce the scan velocity (#757)
+- `repeat` macro for executing n-times a set of macros passed as parameters
+  or attached as hooks (#310, #745, #892)
 - `pre-acq` and `post-acq` hooks to the `ct` macro (#808)
 - `pre-acq` and `post-acq` hooks to the continuous scans: `ascanct` family
   macros (#780)
@@ -21,6 +29,7 @@ This file follows the formats and conventions from [keepachangelog.com]
   free property (#874)
 - Enhance software synchronization by allowing function generation when
   group has 1 repeat only (#786)
+- Tab completion in spock for Boolean macro parameters (#871)
 - Information about controller properties in `sar_info` macro (#855, #866)
 
 ### Fixed
@@ -29,12 +38,23 @@ This file follows the formats and conventions from [keepachangelog.com]
 - Push change events from code for measurement group attributes: moveable,
   latency time and synchronization (#736, #738)
 - `getPoolObj` random `AttributeErrors: _pool_obj` errors in macros (#865, #57)
-- Spock returning prompt too early not allowing to stop macros (#717, #725).
-  Requires Taurus 4.4 (taurus-org/taurus#738).
+- Pre-scan snapshot (#753)
+- Avoid loading configuration to disabled controllers in measurement group
+  acquisition (#758)
+- Spock returning prompt too early not allowing to stop macros on Windows
+  (#717, #725, #905)
 - Validation of starts and finals for a2scanct, a3scanct, meshct, ... (#734)
 - `defelem` macro when using default axis number (#568, #609)
+- Boolean macro parameter validation - now works only True, true, 1
+  or False, false, 0 (#871)
+- Remove numpy and pylab symbols from spock namespace in order to
+  not collide with macros e.g. repeat, where, etc. (#893)
 - Make SPEC_FileRecorder use LF instead of CRLF even on windows (#750)
 - Appending of hooks from sequence XML (#747)
+- Avoid problems with MacroServer attributes (Environment and Elements) in
+  taurus extesnions by using newly introduced (in taurus 4.4.0) TangoSerial
+  serialization mode (#897)
+- Pseudo counters in continuous acquisition (#899)
 - Split of `PoolPath`, `MacroPath` and `RecorderPath` with OS separator (#762)
 - `lsgh` list hooks multiple times to reflect the configuration (#774)
 - Avoid errors if selected trajectory in HKL controller doesnot exists (#752)
@@ -42,14 +62,19 @@ This file follows the formats and conventions from [keepachangelog.com]
 - `getElementByAxis` and `getElementByName` of Controller Taurus extension
   class (#872)
 - `GScan` intervals estimation (#772)
+- `meshct` intervals estimation (#768)
 - Documentation on how to install and use Sardana from Git clone (#751)
 - Documentation (Sphinx) build warnings (#859, #179, #219, #393)
 
 ### Changed
 - Change epoch from float to formatted date & time in Spec recorder (#766)
 - Documentation hosting from ReadTheDocs to Github Pages (build on Travis) (#826)
+- Door and MacroServer references in spock configuration file (profile) to
+  use FQDN URI references (#894, #668)
 
 ### Deprecated
+- `Label` and `Calibration` attributes of discrete pseudo motor in favor
+  of `Configuration` attribute (#801)
 - `PoolMotorSlim` widget in favor of `PoolMotorTV` widget (#163, #785) 
 - `Controller.getUsedAxis` (Taurus device extension) in favor
 of `Controller.getUsedAxes` (#609)
@@ -446,7 +471,8 @@ Main improvements since sardana 1.5.0 (aka Jan15):
 
 
 [keepachangelog.com]: http://keepachangelog.com
-[Unreleased]: https://github.com/sardana-org/sardana/compare/2.3.2...HEAD
+[Unreleased]: https://github.com/sardana-org/sardana/compare/2.5.0...HEAD
+[2.5.0]: https://github.com/sardana-org/sardana/compare/2.4.0...2.5.0
 [2.4.0]: https://github.com/sardana-org/sardana/compare/2.3.2...2.4.0
 [2.3.2]: https://github.com/sardana-org/sardana/compare/2.3.1...2.3.2
 [2.3.1]: https://github.com/sardana-org/sardana/compare/2.3.0...2.3.1

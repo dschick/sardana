@@ -749,10 +749,6 @@ class GScan(Logger):
         ret = []
         for src, label in elements:
             try:
-                is_full_tango_name = src.startswith('tango://')
-                if not is_full_tango_name:
-                    src = 'tango://{}'.format(src)
-
                 if src in all_elements_info:
                     ei = all_elements_info[src]
                     column = ColumnDesc(name=ei.full_name,
@@ -792,6 +788,13 @@ class GScan(Logger):
     MAX_ITER = 100000
 
     def _estimate(self, max_iter=None):
+        """Estimate time and intervals of a scan.
+
+        Time estimation considers motion time (including going to the start
+        position) and acquisition time.
+
+        Interval estimation is a number of scan trajectory intervals.
+        """
         with_time = hasattr(self.macro, "getTimeEstimation")
         with_interval = hasattr(self.macro, "getIntervalEstimation")
         if with_time and with_interval:
@@ -2112,6 +2115,32 @@ class CTScan(CScan, CAcquisition):
                                   decel_time=dec_time,
                                   min_vel=base_vel)
             ideal_path = MotionPath(ideal_vmotor, start, end, active_time)
+
+            # check if calculated ideal velocity is accepted by hardware
+            backup_vel = moveable.getVelocity(force=True)
+            ideal_max_vel = try_vel = ideal_path.max_vel
+            try:
+                while True:
+                    moveable.setVelocity(try_vel)
+                    get_vel = moveable.getVelocity(force=True)
+                    if get_vel < ideal_max_vel:
+                        msg = 'Ideal scan velocity {0} of motor {1} cannot ' \
+                              'be reached, {2} will be used instead'.format(
+                                  ideal_max_vel, moveable.name, get_vel)
+                        self.macro.warning(msg)
+                        ideal_path.max_vel = get_vel
+                        break
+                    elif get_vel > ideal_max_vel:
+                        try_vel -= (get_vel - try_vel)
+                    else:
+                        break
+            except Exception:
+                self.macro.debug("Unknown error when trying if hardware "
+                                 "accepts ideal scan velocity", exc_info=1)
+                ideal_path.max_vel = ideal_max_vel
+            finally:
+                moveable.setVelocity(backup_vel)
+
             ideal_path.moveable = moveable
             ideal_path.apply_correction = True
             ideal_paths.append(ideal_path)
