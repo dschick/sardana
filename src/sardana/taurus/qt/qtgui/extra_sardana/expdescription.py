@@ -102,21 +102,27 @@ def find_diff(first, second):
     """
     Return a dict of keys that differ with another config object.  If a value
     is not found in one fo the configs, it will be represented by KEYNOTFOUND.
-    @param first:   Fist configuration to diff.
-    @param second:  Second configuration to diff.
-    @return diff:   Dict of Key => (first.val, second.val)
+    :param first: Fist configuration to diff.
+    :param second: Second configuration to diff.
+    :return: Dict of Key => (first.val, second.val)
     """
 
     KEYNOTFOUNDIN1 = 'KeyNotFoundInRemote'
     KEYNOTFOUNDIN2 = 'KeyNotFoundInLocal'
-    SKIPKEYS = ['_controller_name']
-    SKIPLIST = ['scanfile']
+
+    # The GUI can not change these keys. They are changed by the server.
+    SKIPKEYS = ['_controller_name', 'description', 'timer', 'monitor', 'ndim',
+                'source']
+
+    # These keys can have a list as value.
+    SKIPLIST = ['scanfile', 'plot_axes', 'prescansnapshot', 'shape']
+
     DICT_TYPES = [taurus.core.util.containers.CaselessDict, dict]
     diff = {}
     sd1 = set(first)
     sd2 = set(second)
-    # Keys missing in the second dict
 
+    # Keys missing in the second dict
     for key in sd1.difference(sd2):
         if key in SKIPKEYS:
             continue
@@ -126,18 +132,27 @@ def find_diff(first, second):
         if key in SKIPKEYS:
             continue
         diff[key] = (KEYNOTFOUNDIN1, second[key])
+
     # Check for differences
     for key in sd1.intersection(sd2):
+        if key in SKIPKEYS:
+            continue
         value1 = first[key]
         value2 = second[key]
         if type(value1) in DICT_TYPES:
-            idiff = find_diff(value1, value2)
+            try:
+                idiff = find_diff(value1, value2)
+            except Exception:
+                idiff = 'Error on processing'
             if len(idiff) > 0:
                 diff[key] = idiff
         elif type(value1) == list and key.lower() not in SKIPLIST:
             ldiff = []
             for v1, v2 in zip(value1, value2):
-                idiff = find_diff(v1, v2)
+                try:
+                    idiff = find_diff(v1, v2)
+                except Exception:
+                    idiff = 'Error on processing'
                 ldiff.append(idiff)
             if len(ldiff) > 0:
                 diff[key] = ldiff
@@ -156,6 +171,12 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
     It receives a Sardana Door name as its model and gets/sets the configuration
     using the `ExperimentConfiguration` environmental variable for that Door.
     '''
+
+    try:
+        # TODO: For Taurus 4 compatibility
+        createExpConfChangedDialog = Qt.pyqtSignal()
+    except AttributeError:
+        pass
 
     def __init__(self, parent=None, door=None, plotsButton=True,
                  autoUpdate=False):
@@ -190,7 +211,7 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
 
         # Pending event variables
         self._expConfChangedDialog = None
-        self.createExpConfChangedDialog = Qt.pyqtSignal()
+
         self.connect(self, Qt.SIGNAL('createExpConfChangedDialog'),
                      self._createExpConfChangedDialog)
 
@@ -323,11 +344,12 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
             self._reloadConf(force=True)
 
     @QtCore.pyqtSlot()
-    def _experimentalConfigurationChanged(self):
+    def _experimentConfigurationChanged(self):
+        self._diff = ''
         try:
             self._diff = self._getDiff()
-        except Exception:
-            return
+        except Exception as e:
+            raise RuntimeError('Error on processing! {0}'.format(e))
 
         if len(self._diff) > 0:
             if self._autoUpdate:
@@ -335,6 +357,9 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
             else:
                 if self._expConfChangedDialog is None:
                     self.emit(Qt.SIGNAL('createExpConfChangedDialog'))
+                    # TODO: For Taurus 4 compatibility
+                    if hasattr(self, 'createExpConfChangedDialog'):
+                        self.createExpConfChangedDialog.emit()
                 else:
                     msg_details = self._getDetialsText()
                     msg_info = self._getResumeText()
@@ -388,7 +413,7 @@ class ExpDescriptionEditor(Qt.QWidget, TaurusBaseWidget):
         self.ui.taurusModelTree.setModel(tghost)
         self.ui.sardanaElementTree.setModel(msname)
         self.connect(door, Qt.SIGNAL("experimentConfigurationChanged"),
-                     self._experimentalConfigurationChanged)
+                     self._experimentConfigurationChanged)
 
     def _reloadConf(self, force=False):
         if not force and self.isDataChanged():
@@ -681,7 +706,7 @@ def main():
         parser.usage = "%prog [options] <door name>"
         parser.add_option('--auto-update', dest='auto_update',
                           action='store_true',
-                          help='Set auto update of experimental configuration')
+                          help='Set auto update of experiment configuration')
         app = Application(app_name="Exp. Description demo", app_version="1.0",
                           org_domain="Sardana", org_name="Tango community",
                           cmd_line_parser=parser)

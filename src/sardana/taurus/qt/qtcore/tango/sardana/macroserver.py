@@ -59,8 +59,9 @@ class QDoor(BaseDoor, Qt.QObject):
     def __init__(self, name, qt_parent=None, **kw):
         self.call__init__wo_kw(Qt.QObject, qt_parent)
         self.call__init__(BaseDoor, name, **kw)
-        self._mntgrp_connected = []
+        self._mntgrps_connected = []
         self._use_experimet_configuration = False
+        self._connections_prepared = False
 
     def resultReceived(self, log_name, result):
         res = BaseDoor.resultReceived(self, log_name, result)
@@ -107,28 +108,33 @@ class QDoor(BaseDoor, Qt.QObject):
         return res
 
     def _prepare_connections(self):
-        if not self._use_experimet_configuration:
+        if not self._use_experimet_configuration and \
+                not self._connections_prepared:
             self.connect(self.macro_server, Qt.SIGNAL("environmentChanged"),
-                         self._experimentalConfiguration)
+                         self._experimentConfigurationChanged)
             self.connect(self.macro_server, Qt.SIGNAL("elementsChanged"),
                          self._elementsChanged)
+            self._elementsChanged()
+            self._connections_prepared = True
 
     def _elementsChanged(self):
-        len_mnt_grps_connected = len(self._mntgrp_connected)
-        elements = self.macro_server.getElementsOfType("MeasurementGroup")
-        for name, mg in elements.items():
-            if name in self._mntgrp_connected:
-                continue
-            else:
+        mntgrps = self.macro_server.getElementsOfType("MeasurementGroup")
+        # one or more measurement group was deleted
+        mntgrp_changed = len(self._mntgrps_connected) > len(mntgrps)
+        new_mntgrp_connected = []
+        for name, mg in mntgrps.items():
+            if name not in self._mntgrps_connected:
+                mntgrp_changed = True  # this measurement group is new
                 obj = mg.getObj()
                 self.connect(obj, Qt.SIGNAL("configurationChanged"),
-                             self._experimentalConfiguration)
-                self._mntgrp_connected.append(name)
+                             self._experimentConfigurationChanged)
+            new_mntgrp_connected.append(name)
+        self._mntgrp_connected = new_mntgrp_connected
 
-        if len(self._mntgrp_connected) != len_mnt_grps_connected:
+        if mntgrp_changed:
             self.emit(Qt.SIGNAL("experimentConfigurationChanged"))
 
-    def _experimentalConfiguration(self, *args):
+    def _experimentConfigurationChanged(self, *args):
         self.emit(Qt.SIGNAL("experimentConfigurationChanged"))
 
     def getExperimentConfigurationObj(self):
@@ -148,7 +154,7 @@ class QMacroServer(BaseMacroServer, Qt.QObject):
         elementsUpdated = Qt.pyqtSignal()
         elementsChanged = Qt.pyqtSignal()
         macrosUpdated = Qt.pyqtSignal()
-        environmentChange = Qt.pyqtSignal(list)
+        environmentChanged = Qt.pyqtSignal(list)
     except AttributeError:
         pass
 

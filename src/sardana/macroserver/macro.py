@@ -32,7 +32,7 @@ from __future__ import print_function
 __all__ = ["OverloadPrint", "PauseEvent", "Hookable", "ExecMacroHook",
            "MacroFinder", "Macro", "macro", "iMacro", "imacro",
            "MacroFunc", "Type", "ParamRepeat", "Table", "List", "ViewOption",
-           "LibraryError", "OptionalParam"]
+           "LibraryError", "Optional"]
 
 __docformat__ = 'restructuredtext'
 
@@ -56,7 +56,7 @@ from sardana.sardanadefs import State
 from sardana.util.wrap import wraps
 
 from sardana.macroserver.msparameter import Type, ParamType, ParamRepeat, \
-    OptionalParam
+    Optional
 from sardana.macroserver.msexception import StopException, AbortException, \
     MacroWrongParameterType, UnknownEnv, UnknownMacro, LibraryError
 from sardana.macroserver.msoptions import ViewOption
@@ -1186,7 +1186,7 @@ class Macro(Logger):
             self.execMacro('mv', th, 0) # backwards compatibility - see note
 
             # a sequence of parameters:
-            self.execMacro(['ascan', 'th', '0', '100', '10', '1.0')
+            self.execMacro(['ascan', 'th', '0', '100', '10', '1.0'])
             self.execMacro(['mv', [[motor.getName(), '0']]])
             self.execMacro(['mv', motor.getName(), '0']) # backwards compatibility - see note
             self.execMacro(('ascan', 'th', 0, 100, 10, 1.0))

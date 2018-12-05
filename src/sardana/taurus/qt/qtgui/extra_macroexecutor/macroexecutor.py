@@ -47,7 +47,7 @@ from sardana.taurus.qt.qtgui.extra_macroexecutor.macroparameterseditor import Pa
 from .favouriteseditor import FavouritesMacrosEditor, HistoryMacrosViewer
 from .common import MacroComboBox, MacroExecutionWindow, standardPlotablesFilter
 
-from sardana.macroserver.msparameter import OptionalParam
+from sardana.macroserver.msparameter import Optional
 
 
 class MacroProgressBar(Qt.QProgressBar):
@@ -265,10 +265,15 @@ class SpockCommandWidget(Qt.QLineEdit, TaurusBaseContainer):
 
         # Get the parameters information to check if there are optional
         # paramters
-        macro_obj = self.getModelObj()
-        macro_params_info = macro_obj.getElementInfo(mlist[0]).parameters
+        ms_obj = self.getModelObj()
+        macro_obj = ms_obj.getElementInfo(mlist[0])
+        macro_params_info = None
+        if macro_obj is not None:
+            macro_params_info = macro_obj.parameters
 
         while not ix == Qt.QModelIndex():
+            if macro_params_info is None:
+                break
             try:
                 propValue = mlist[counter]
                 try:
@@ -283,7 +288,7 @@ class SpockCommandWidget(Qt.QLineEdit, TaurusBaseContainer):
             except IndexError:
                 param_info = macro_params_info[counter-1]
                 # Skip validation in case of optional parameters
-                if param_info['default_value'] == OptionalParam:
+                if param_info['default_value'] == Optional:
                     self.model().setData(self.currentIndex,
                                          Qt.QVariant(None))
                 else:
