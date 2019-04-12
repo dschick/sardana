@@ -1509,7 +1509,10 @@ class MGConfiguration(object):
 
     def read(self, parallel=True):
         if parallel:
-            return self._read_parallel()
+            print ("read entering")
+            ret = self._read_parallel()
+            print ("read leaving")
+            return ret
         return self._read()
 
     def _read_parallel(self):
@@ -1524,8 +1527,12 @@ class MGConfiguration(object):
             if dev is None:
                 continue
             try:
+                print ("MGConfiguration._read_parallel before "
+                       "read_attributes_asynch %s %s" % (dev.name(), attrs.keys()))
                 dev_replies[dev] = dev.read_attributes_asynch(
                     attrs.keys()), attrs
+                print ("MGConfiguration._read_parallel after "
+                       "read_attributes_asynch")
             except:
                 dev_replies[dev] = None, attrs
 
@@ -1533,7 +1540,11 @@ class MGConfiguration(object):
         for dev, reply_data in dev_replies.items():
             reply, attrs = reply_data
             try:
+                print ("MGConfiguration._read_parallel before "
+                       "read_attributes_reply %s" % dev.name())
                 data = dev.read_attributes_reply(reply, 0)
+                print ("MGConfiguration._read_parallel after "
+                       "read_attributes_reply")
                 for data_item in data:
                     channel_data = attrs[data_item.name]
                     if data_item.has_failed:
@@ -1541,7 +1552,10 @@ class MGConfiguration(object):
                     else:
                         value = data_item.value
                     ret[channel_data['full_name']] = value
-            except:
+                    print ("MGConfiguration._read_parallel: value = %s" %
+                           value)
+            except Exception, e:
+                print ("MGConfiguration._read_parallel: exception = %s" % e)
                 for _, channel_data in attrs.items():
                     ret[channel_data['full_name']] = None
 
